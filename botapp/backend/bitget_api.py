@@ -1,93 +1,54 @@
-import time,hmac,hashlib,base64,requests,json
-from config import *
+import time, hmac, hashlib, base64, requests
+from state import state
 
-def sign(ts,method,path,body=""):
-    msg=f"{ts}{method}{path}{body}"
+BASE = "https://api.bitget.com"
+
+def sign(ts, method, path, body=""):
+    msg = str(ts)+method+path+body
     return base64.b64encode(
-        hmac.new(API_SECRET.encode(),msg.encode(),hashlib.sha256).digest()
+        hmac.new(state["api_secret"].encode(), msg.encode(), hashlib.sha256).digest()
     ).decode()
 
 def headers(method,path,body=""):
-    ts=str(int(time.time()*1000))
+    ts = str(int(time.time()*1000))
     return {
-        "ACCESS-KEY":API_KEY,
-        "ACCESS-SIGN":sign(ts,method,path,body),
-        "ACCESS-TIMESTAMP":ts,
-        "ACCESS-PASSPHRASE":PASSPHRASE,
+        "ACCESS-KEY": state["api_key"],
+        "ACCESS-SIGN": sign(ts,method,path,body),
+        "ACCESS-TIMESTAMP": ts,
+        "ACCESS-PASSPHRASE": state["passphrase"],
         "Content-Type":"application/json"
     }
 
-def get_balance():
-    path="/api/mix/v1/account/accounts"
-    r=requests.get(BASE_URL+path,headers=headers("GET",path))
-    try:
-        for a in r.json()["data"]:
-            if a["marginCoin"]==MARGIN:
-                return float(a["available"])
-    except:
-        pass
-    return 0
+def place_order(side, price, size):
+    if state["mode"] != "live":
+        print("PAPER ORDER", side, price, size)
+        return
 
-def place_limit(side,price,size):
+    path="/api/mix/v1/order/placeOrder"
     body={
-        "symbol":SYMBOL,
-        "marginCoin":MARGIN,
+        "symbol":state["symbol"],
+        "marginCoin":"USDT",
         "size":str(size),
         "price":str(price),
-        "side":"open_long" if side=="BUY" else "open_short",
-        "orderType":"limit",
-        "timeInForceValue":"post_only"
+        "side":side.lower(),
+        "orderType":"limit"
     }
 
-    path="/api/mix/v1/order/placeOrder"
+    requests.post(BASE+path,headers=headers("POST",path,str(body)),json=body)
 
-    return requests.post(BASE_URL+path,
-        json=body,
-        headers=headers("POST",path,json.dumps(body))
-    ).json()
+def place_oco(side,tp,sl,size):
+    if state["mode"] != "live":
+        print("PAPER OCO",tp,sl)
+        return
 
-def close_position(side,size):
+    path="/api/mix/v1/order/placeTPSL"
     body={
-        "symbol":SYMBOL,
-        "marginCoin":MARGIN,
-        "size":str(size),
-        "side":"close_long" if side=="SELL" else "close_short",
-        "orderType":"market",
-        "reduceOnly":True
-    }
-
-    path="/api/mix/v1/order/placeOrder"
-
-    return requests.post(BASE_URL+path,
-        json=body,
-        headers=headers("POST",path,json.dumps(body))
-    ).json()
-
-def place_tpsl(side,tp,sl,size):
-    path="/api/mix/v1/plan/placePlan"
-
-    tp_body={
-        "symbol":SYMBOL,
-        "marginCoin":MARGIN,
-        "size":str(size),
+        "symbol":state["symbol"],
+        "marginCoin":"USDT",
+        "planType":"profit_loss",
         "triggerPrice":str(tp),
-        "side":"close_long" if side=="BUY" else "close_short",
-        "orderType":"market",
-        "planType":"profit_plan"
+        "stopLossTriggerPrice":str(sl),
+        "holdSide": "long" if side=="BUY" else "short"
     }
 
-    sl_body={
-        "symbol":SYMBOL,
-        "marginCoin":MARGIN,
-        "size":str(size),
-        "triggerPrice":str(sl),
-        "side":"close_long" if side=="BUY" else "close_short",
-        "orderType":"market",
-        "planType":"loss_plan"
-    }
-
-    requests.post(BASE_URL+path,json=tp_body,
-        headers=headers("POST",path,json.dumps(tp_body)))
-
-    requests.post(BASE_URL+path,json=sl_body,
-        headers=headers("POST",path,json.dumps(sl_body)))
+    requests.post(BASE+path,headers=headers("POST",path,str(body)),json=body)

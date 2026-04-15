@@ -1,33 +1,25 @@
-import pandas as pd, asyncio
+import asyncio, random, time
 from state import state
+from execution import execute
 
-def macd(s,f,sl):
-    return s.ewm(span=f).mean()-s.ewm(span=sl).mean()
-
-async def engine_loop():
+async def loop():
     while True:
-        try:
-            if len(state["candles_m1"])<30:
-                await asyncio.sleep(1)
-                continue
+        if state["price"] == 0:
+            state["price"] = 100
 
-            close=pd.Series([c["close"] for c in state["candles_m1"]])
+        state["price"] += random.uniform(-1,1)
 
-            state["macd"]={
-                "fast": macd(close,2,3).iloc[-2:].tolist(),
-                "mid": macd(close,3,4).iloc[-2:].tolist(),
-                "slow": macd(close,4,5).iloc[-2:].tolist()
-            }
+        candle={
+            "time":int(time.time()),
+            "open":state["price"]-1,
+            "high":state["price"]+1,
+            "low":state["price"]-2,
+            "close":state["price"]
+        }
 
-            # 🔥 PNL
-            if state["position"]:
-                price=state["price"]
-                entry=state["entry"]
+        state["candles_m1"].append(candle)
+        state["candles_m1"]=state["candles_m1"][-200:]
 
-                pnl = (price-entry) if state["position"]=="long" else (entry-price)
-                state["pnl"] = round(pnl*state["size"],4)
+        execute()
 
-        except:
-            pass
-
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1)

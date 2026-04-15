@@ -1,21 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>BOT DASHBOARD</title>
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
-<body style="background:#000;color:#0f0;font-family:monospace">
+<body style="background:black;color:lime">
 
-<h2>🚀 BOT LIVE DASHBOARD</h2>
+<h3>⚙️ CONFIG</h3>
 
-<div id="price">PRICE:</div>
-<div id="delta">DELTA:</div>
-<div id="pnl">PNL:</div>
+<input id="key" placeholder="API KEY"><br>
+<input id="secret" placeholder="API SECRET"><br>
+<input id="pass" placeholder="PASSPHRASE"><br>
+<button onclick="save()">SAVE</button>
+
+<h3>📊 DASHBOARD</h3>
+
+<div id="price"></div>
+<div id="pnl"></div>
 
 <div id="chart" style="height:400px"></div>
 
-<script src="app.js"></script>
+<script>
+function save(){
+ fetch("/config",{method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({
+    api_key:key.value,
+    api_secret:secret.value,
+    passphrase:pass.value,
+    mode:"live"
+  })
+ });
+}
+
+const chart=LightweightCharts.createChart(document.getElementById('chart'));
+const series=chart.addCandlestickSeries();
+
+const ws=new WebSocket(
+ (location.protocol==="https:"?"wss://":"ws://")+
+ location.host.replace("3000","8765")
+);
+
+ws.onmessage=e=>{
+ let d=JSON.parse(e.data);
+
+ price.innerText="PRICE "+d.price;
+ pnl.innerText="PNL "+d.pnl;
+
+ if(d.candles_m1.length){
+  series.update(d.candles_m1.slice(-1)[0]);
+ }
+};
+</script>
 
 </body>
 </html>

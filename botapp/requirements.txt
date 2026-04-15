@@ -1,4 +1,7 @@
+fastapi
+uvicorn
 websockets
 pandas
-uvloop
+numpy
 requests
+python-dotenv

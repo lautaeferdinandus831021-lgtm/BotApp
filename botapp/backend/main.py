@@ -1,28 +1,41 @@
-import asyncio, uvloop, websockets
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+import asyncio, uvicorn, json, websockets
+from fastapi import FastAPI, Request
+from state import state
+from engine import loop
 
-from ws_public import run_ws_public
-from engine import engine_loop
-from execution import execute_trade
-from ws_server import handler, broadcast
+app=FastAPI()
+clients=set()
 
-async def loop():
+# ✅ FIX ROOT
+@app.get("/")
+def root():
+    return {"status":"BOT RUNNING 🚀"}
+
+@app.post("/config")
+async def config(req:Request):
+    data=await req.json()
+    state.update(data)
+    return {"ok":True}
+
+async def ws_handler(ws):
+    clients.add(ws)
+    try:
+        async for _ in ws:
+            pass
+    finally:
+        clients.remove(ws)
+
+async def broadcast():
     while True:
-        try:
-            execute_trade()
-        except Exception as e:
-            print("ERR",e)
-        await asyncio.sleep(0.2)
+        if clients:
+            data=json.dumps(state)
+            await asyncio.gather(*[c.send(data) for c in clients])
+        await asyncio.sleep(0.3)
 
 async def main():
+    await websockets.serve(ws_handler,"0.0.0.0",8765)
+    await asyncio.gather(loop(),broadcast())
 
-    await websockets.serve(handler,"0.0.0.0",8765)
-
-    await asyncio.gather(
-        run_ws_public(),
-        engine_loop(),
-        broadcast(),
-        loop()
-    )
-
-asyncio.run(main())
+if __name__=="__main__":
+    asyncio.get_event_loop().create_task(main())
+    uvicorn.run(app,host="0.0.0.0",port=8000)

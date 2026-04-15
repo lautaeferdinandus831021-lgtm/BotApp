@@ -1,52 +1,31 @@
-from order_manager import *
-from risk import *
-from partial import partial_tp
-from bitget_api import place_limit,place_tpsl
+from macd import triple_macd
+from bitget_api import place_order, place_oco
 from state import state
 
-def execute_trade():
+def execute():
 
-    price=state["price"]
-
-    if not spread_filter():
+    sig = triple_macd(state["candles_m1"])
+    if not sig:
         return
 
-    partial_tp()
+    price = state["price"]
+    size = 0.01
 
-    if not can_trade():
-        return
+    # hedge: buka dua arah (limit atas & bawah)
+    if sig == "BUY":
+        entry = price
+        tp = price + 5
+        sl = price - 5
 
-    if not is_m5_open():
-        return
+    else:
+        entry = price
+        tp = price - 5
+        sl = price + 5
 
-    macd=triple_macd_signal()
-    delta=delta_filter()
-    imb=imbalance_zone()
-    absb=absorption_detection()
+    place_order(sig, entry, size)
+    place_oco(sig, tp, sl, size)
 
-    signals=[macd,delta,imb]
-
-    if absb:
-        signals.append(absb)
-
-    if all(s==signals[0] for s in signals if s):
-
-        side=signals[0]
-        entry=adaptive_price(side)
-        size=calc_size(entry)
-
-        print("🔥 ENTRY:",side,entry,size)
-
-        place_limit(side,entry,size)
-
-        tp,sl=calc_tpsl_m5(side)
-
-        if tp and sl:
-            place_tpsl(side,tp,sl,size)
-
-            # ✅ simpan ke state (frontend)
-            state["position"] = "long" if side=="BUY" else "short"
-            state["entry"] = entry
-            state["size"] = size
-            state["tp"] = tp
-            state["sl"] = sl
+    state["position"] = sig
+    state["entry"] = entry
+    state["tp"] = tp
+    state["sl"] = sl
