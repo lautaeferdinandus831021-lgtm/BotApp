@@ -35,12 +35,18 @@ def execute_trade():
         entry=adaptive_price(side)
         size=calc_size(entry)
 
-        print("🔥 REAL ENTRY:",side,entry,size)
+        print("🔥 ENTRY:",side,entry,size)
 
         place_limit(side,entry,size)
 
         tp,sl=calc_tpsl_m5(side)
 
         if tp and sl:
-            print("🎯 TP/SL:",tp,sl)
             place_tpsl(side,tp,sl,size)
+
+            # ✅ simpan ke state (frontend)
+            state["position"] = "long" if side=="BUY" else "short"
+            state["entry"] = entry
+            state["size"] = size
+            state["tp"] = tp
+            state["sl"] = sl

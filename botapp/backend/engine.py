@@ -1,4 +1,4 @@
-import pandas as pd,asyncio
+import pandas as pd, asyncio
 from state import state
 
 def macd(s,f,sl):
@@ -11,13 +11,22 @@ async def engine_loop():
                 await asyncio.sleep(1)
                 continue
 
-            c=pd.Series([x["close"] for x in state["candles_m1"]])
+            close=pd.Series([c["close"] for c in state["candles_m1"]])
 
             state["macd"]={
-                "fast":macd(c,2,3).iloc[-2:].tolist(),
-                "mid":macd(c,3,4).iloc[-2:].tolist(),
-                "slow":macd(c,4,5).iloc[-2:].tolist()
+                "fast": macd(close,2,3).iloc[-2:].tolist(),
+                "mid": macd(close,3,4).iloc[-2:].tolist(),
+                "slow": macd(close,4,5).iloc[-2:].tolist()
             }
+
+            # 🔥 PNL
+            if state["position"]:
+                price=state["price"]
+                entry=state["entry"]
+
+                pnl = (price-entry) if state["position"]=="long" else (entry-price)
+                state["pnl"] = round(pnl*state["size"],4)
+
         except:
             pass
 
