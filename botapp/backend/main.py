@@ -1,54 +1,64 @@
-import asyncio, json, websockets
-from fastapi import FastAPI, Request
-from state import state
-from engine import loop
-import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import requests
+import time
 
 app = FastAPI()
-clients = set()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+STATE = {
+    "api_key": "",
+    "api_secret": "",
+    "passphrase": "",
+    "balance": 0
+}
+
+# =========================
+# BITGET API (SIMPLE)
+# =========================
+def get_balance():
+    try:
+        # sementara dummy dulu biar kelihatan jalan
+        return 1000.0
+    except:
+        return 0
+
+# =========================
+# LOOP BOT
+# =========================
+def bot_loop():
+    while True:
+        STATE["balance"] = get_balance()
+        time.sleep(5)
+
+# =========================
+# API
+# =========================
 @app.get("/")
 def root():
     return {"status": "BOT RUNNING 🚀"}
 
 @app.post("/config")
-async def config(req: Request):
-    data = await req.json()
-    state.update(data)
-    return {"ok": True}
+def config(data: dict):
+    STATE["api_key"] = data.get("api_key")
+    STATE["api_secret"] = data.get("api_secret")
+    STATE["passphrase"] = data.get("passphrase")
+    return {"status": "saved"}
 
-# ================= WS =================
-async def ws_handler(ws):
-    clients.add(ws)
-    try:
-        async for _ in ws:
-            pass
-    finally:
-        clients.remove(ws)
+@app.get("/balance")
+def balance():
+    return {"balance": STATE["balance"]}
 
-async def ws_server():
-    async with websockets.serve(ws_handler, "0.0.0.0", 8765):
-        print("WS RUNNING 8765 🚀")
-        await asyncio.Future()
+# =========================
+# START BOT
+# =========================
+import threading
+threading.Thread(target=bot_loop, daemon=True).start()
 
-# ================= BROADCAST =================
-async def broadcast():
-    while True:
-        if clients:
-            data = json.dumps(state)
-            await asyncio.gather(*[c.send(data) for c in clients])
-        await asyncio.sleep(0.3)
-
-# ================= MAIN =================
-async def start():
-    await asyncio.gather(
-        ws_server(),
-        loop(),
-        broadcast()
-    )
-
-if __name__ == "__main__":
-    loop_async = asyncio.get_event_loop()
-    loop_async.create_task(start())
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
