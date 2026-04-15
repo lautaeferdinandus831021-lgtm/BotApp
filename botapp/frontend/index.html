@@ -4,8 +4,6 @@
 <title>BOT DASHBOARD</title>
 <style>
 body { background:black; color:#00ff00; font-family:monospace }
-input,button { margin:5px }
-#chart { width:100%; height:400px; background:#111 }
 </style>
 </head>
 
@@ -18,29 +16,38 @@ input,button { margin:5px }
 <button onclick="save()">SAVE</button>
 
 <h2>DASHBOARD</h2>
-
 <div id="price">PRICE: -</div>
 <div id="pnl">PNL: -</div>
 <div id="balance">BALANCE: -</div>
 
-<canvas id="chart"></canvas>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-const ws = new WebSocket("wss://" + location.host.replace("3000","8765"));
+let ws;
 
-ws.onmessage = (e)=>{
-  const d = JSON.parse(e.data);
+function connectWS(){
+  ws = new WebSocket("wss://" + location.hostname.replace("3000","8765") + ".app.github.dev");
 
-  document.getElementById("price").innerText = "PRICE: " + d.price;
-  document.getElementById("pnl").innerText = "PNL: " + d.pnl;
+  ws.onopen = ()=>console.log("WS CONNECTED 🚀");
 
-  if(d.balance){
-    document.getElementById("balance").innerText =
-      "BALANCE: " + JSON.stringify(d.balance);
-  }
-};
+  ws.onmessage = (e)=>{
+    const d = JSON.parse(e.data);
+
+    document.getElementById("price").innerText = "PRICE: " + d.price;
+    document.getElementById("pnl").innerText = "PNL: " + d.pnl;
+
+    if(d.balance){
+      document.getElementById("balance").innerText =
+        "BALANCE: " + JSON.stringify(d.balance);
+    }
+  };
+
+  ws.onerror = ()=>console.log("WS ERROR");
+  ws.onclose = ()=>{
+    console.log("RECONNECT...");
+    setTimeout(connectWS,2000);
+  };
+}
+
+connectWS();
 
 function save(){
   fetch("/config",{
