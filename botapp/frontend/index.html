@@ -1,59 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
-<body style="background:black;color:lime">
+<body style="background:black;color:lime;font-family:monospace">
 
-<h3>CONFIG</h3>
+<h2>CONFIG</h2>
 <input id="key" placeholder="API KEY"><br>
 <input id="secret" placeholder="API SECRET"><br>
 <input id="pass" placeholder="PASSPHRASE"><br>
 <button onclick="save()">SAVE</button>
 
-<h3>DASHBOARD</h3>
+<h2>DASHBOARD</h2>
 
-<div id="price">-</div>
-<div id="pnl">-</div>
+<div id="price">PRICE: -</div>
+<div id="pnl">PNL: -</div>
 
 <div id="chart" style="height:400px"></div>
 
 <script>
 
+// ================= CONFIG =================
+const API_URL = location.origin.replace("3000","8000");
+const WS_URL  = "wss://" + location.host.replace("3000","8765");
+
+// ================= SAVE CONFIG =================
 function save(){
- fetch("https://YOUR-8000-URL/config",{
+ fetch(API_URL + "/config",{
   method:"POST",
   headers:{"Content-Type":"application/json"},
   body:JSON.stringify({
     api_key:key.value,
     api_secret:secret.value,
-    passphrase:pass.value,
-    mode:"paper"
+    passphrase:pass.value
   })
- });
+ }).then(()=>alert("CONFIG SAVED"));
 }
 
-// 🔥 FIX WS URL MANUAL
-const ws = new WebSocket("wss://YOUR-8765-URL");
-
+// ================= CHART =================
 const chart = LightweightCharts.createChart(document.getElementById('chart'));
-const series = chart.addCandlestickSeries();
+const candleSeries = chart.addCandlestickSeries();
 
-ws.onopen = () => console.log("WS CONNECTED");
+// ================= WS =================
+const ws = new WebSocket(WS_URL);
 
-ws.onmessage = (e)=>{
- let d = JSON.parse(e.data);
-
- price.innerText = "PRICE: "+d.price;
- pnl.innerText = "PNL: "+d.pnl;
-
- if(d.candles_m1.length){
-  series.update(d.candles_m1.slice(-1)[0]);
- }
+ws.onopen = ()=>{
+ console.log("WS CONNECTED ✅");
 };
 
-ws.onerror = (e)=>console.log("WS ERROR",e);
+ws.onerror = (e)=>{
+ console.log("WS ERROR ❌", e);
+};
+
+ws.onmessage = (event)=>{
+ const data = JSON.parse(event.data);
+
+ document.getElementById("price").innerText = "PRICE: " + data.price;
+ document.getElementById("pnl").innerText = "PNL: " + data.pnl;
+
+ if(data.candles_m1 && data.candles_m1.length){
+   candleSeries.update(data.candles_m1[data.candles_m1.length - 1]);
+ }
+};
 
 </script>
 
