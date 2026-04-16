@@ -1,66 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>BOT DASHBOARD</title>
-<style>
-body { background:black; color:#00ff00; font-family:monospace }
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BOT PRO</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
-
 <body>
 
-<h2>CONFIG</h2>
-<input id="key" placeholder="API KEY"><br>
-<input id="secret" placeholder="API SECRET"><br>
-<input id="pass" placeholder="PASSPHRASE"><br>
-<button onclick="save()">SAVE</button>
+<div class="topbar">
+  <input id="k" placeholder="API KEY">
+  <input id="s" placeholder="SECRET">
+  <input id="p" placeholder="PASSPHRASE">
+  <button onclick="save()">SAVE</button>
+</div>
 
-<h2>DASHBOARD</h2>
-<div id="price">PRICE: -</div>
-<div id="pnl">PNL: -</div>
-<div id="balance">BALANCE: -</div>
+<div class="grid">
+  <div class="card">
+    <div id="chart"></div>
+  </div>
 
-<script>
-let ws;
+  <div class="card side">
+    <div id="balance"></div>
+    <div id="price"></div>
+    <div id="pnl"></div>
+    <div id="position"></div>
+    <div id="signal"></div>
 
-function connectWS(){
-  ws = new WebSocket("wss://" + location.hostname.replace("3000","8765") + ".app.github.dev");
+    <button onclick="buy()">BUY</button>
+    <button onclick="sell()">SELL</button>
 
-  ws.onopen = ()=>console.log("WS CONNECTED 🚀");
+    <h3>DEPTH</h3>
+    <canvas id="depth"></canvas>
 
-  ws.onmessage = (e)=>{
-    const d = JSON.parse(e.data);
+    <h3>FOOTPRINT (DELTA)</h3>
+    <canvas id="foot"></canvas>
 
-    document.getElementById("price").innerText = "PRICE: " + d.price;
-    document.getElementById("pnl").innerText = "PNL: " + d.pnl;
+    <h3>REPLAY</h3>
+    <button onclick="replay()">PLAY</button>
+  </div>
+</div>
 
-    if(d.balance){
-      document.getElementById("balance").innerText =
-        "BALANCE: " + JSON.stringify(d.balance);
-    }
-  };
-
-  ws.onerror = ()=>console.log("WS ERROR");
-  ws.onclose = ()=>{
-    console.log("RECONNECT...");
-    setTimeout(connectWS,2000);
-  };
-}
-
-connectWS();
-
-function save(){
-  fetch("/config",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      api_key:document.getElementById("key").value,
-      api_secret:document.getElementById("secret").value,
-      passphrase:document.getElementById("pass").value
-    })
-  });
-}
-</script>
+<script src="auth.js"></script>
+<script src="trade.js"></script>
+<script src="ws.js"></script>
+<script src="chart.js"></script>
+<script src="depth.js"></script>
+<script src="footprint.js"></script>
 
 </body>
 </html>
